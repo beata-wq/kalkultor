@@ -349,6 +349,27 @@ function bm_hide_variation_price_when_no_quote( $price_html, $variation ) {
     return $price_html;
 }
 
+add_filter( 'woocommerce_show_variation_price', 'bm_hide_variation_price_output_when_no_quote', 10, 3 );
+function bm_hide_variation_price_output_when_no_quote( $show, $product, $variation ) {
+    if ( is_admin() && ! wp_doing_ajax() ) {
+        return $show;
+    }
+
+    if ( ! $product instanceof WC_Product ) {
+        return $show;
+    }
+
+    if ( ! is_product() ) {
+        return $show;
+    }
+
+    if ( bm_product_has_no_quote( $product->get_id() ) ) {
+        return false;
+    }
+
+    return $show;
+}
+
 
 
 /**
@@ -962,6 +983,14 @@ echo $c['label'] . ' ' . $info;
         </span>
 		<br />Cena ostateczna zostanie podana w podsumowaniu zamówienia przygotowanym przez naszego pracownika.
     </div>
+    <?php if ( $no_quote ) : ?>
+        <style>
+            .single-product .woocommerce-variation-price,
+            .single-product .woocommerce-variation-price .price {
+                display: none !important;
+            }
+        </style>
+    <?php endif; ?>
 
     <script>
         window.bmPanesPrices = <?php echo wp_json_encode( $panes_prices ); ?>;
@@ -1063,6 +1092,10 @@ function bmGetPanesExtraPrice() {
                     var wooPriceBdi = document.querySelector('.summary .price .woocommerce-Price-amount bdi');
                     if (wooPriceBdi) {
                         wooPriceBdi.textContent = '';
+                    }
+                    var variationPrice = document.querySelector('.woocommerce-variation-price');
+                    if (variationPrice) {
+                        variationPrice.textContent = '';
                     }
                     return;
                 }
