@@ -240,6 +240,64 @@ if ( ! defined( 'BM_DOOR_PROFILE_RETRO_PERCENT' ) ) {
     define( 'BM_DOOR_PROFILE_RETRO_PERCENT', 0.01 ); // 1% dla profilu Retro
 }
 
+function bm_get_product_setting_float( $product_id, $meta_key, $default ) {
+    if ( ! $product_id ) {
+        return $default;
+    }
+
+    $value = get_post_meta( $product_id, $meta_key, true );
+    if ( $value === '' || $value === null ) {
+        return $default;
+    }
+
+    return (float) $value;
+}
+
+function bm_get_door_min_area( $product_id ) {
+    if ( ! $product_id ) {
+        return BM_DOOR_MIN_AREA;
+    }
+
+    $raw_min_area = get_post_meta( $product_id, 'bm_door_min_area', true );
+    if ( $raw_min_area !== '' && $raw_min_area !== null ) {
+        return (float) $raw_min_area;
+    }
+
+    $height_mm = (float) get_post_meta( $product_id, 'bm_wysokosc_mm', true );
+    $width_mm  = (float) get_post_meta( $product_id, 'bm_szerokosc_mm', true );
+    if ( $height_mm <= 0 ) {
+        $height_mm = (float) get_post_meta( $product_id, '_bm_wysokosc_mm', true );
+    }
+    if ( $width_mm <= 0 ) {
+        $width_mm = (float) get_post_meta( $product_id, '_bm_szerokosc_mm', true );
+    }
+
+    if ( $height_mm > 0 && $width_mm > 0 ) {
+        return ( $height_mm * $width_mm ) / 1000000;
+    }
+
+    return BM_DOOR_MIN_AREA;
+}
+
+function bm_get_door_max_area( $product_id ) {
+    $max_area = bm_get_product_setting_float( $product_id, 'bm_door_max_area', BM_DOOR_MAX_AREA );
+    $min_area = bm_get_door_min_area( $product_id );
+
+    if ( $max_area < $min_area ) {
+        return $min_area;
+    }
+
+    return $max_area;
+}
+
+function bm_get_door_price_per_m2_over_min( $product_id ) {
+    return bm_get_product_setting_float( $product_id, 'bm_door_price_per_m2_over_min', BM_DOOR_PRICE_PER_M2_OVER_MIN );
+}
+
+function bm_get_door_profile_retro_percent( $product_id ) {
+    return bm_get_product_setting_float( $product_id, 'bm_door_profile_retro_percent', BM_DOOR_PROFILE_RETRO_PERCENT );
+}
+
 
 
 /**
@@ -402,6 +460,11 @@ function bm_custom_product_addons() {
 	$product_id =  $product->get_id();
     if ( ! $product || ! is_product() ) return;
 
+    $min_area             = bm_get_door_min_area( $product_id );
+    $max_area             = bm_get_door_max_area( $product_id );
+    $price_per_m2_over    = bm_get_door_price_per_m2_over_min( $product_id );
+    $profile_retro_percent = bm_get_door_profile_retro_percent( $product_id );
+
     // Kategorie, dla których dodatki mają się pokazywać
     $eligible_categories = array( 'drzwi', 'drzwi-przesuwne', 'nieruchome-segmenty' );
 
@@ -496,7 +559,7 @@ $all_profiles = array(
     ),
     'retro' => array(
         'label'   => 'Profil stalowy Retro',
-        'percent' => 0.01, // przykładowa wartość
+        'percent' => $profile_retro_percent,
     ),
 );
 
@@ -618,7 +681,7 @@ $colors = array(
         ),
         'retro' => array(
             'label'   => 'Profil stalowy Retro',
-            'percent' => BM_DOOR_PROFILE_RETRO_PERCENT,
+            'percent' => $profile_retro_percent,
         ),
     );
 // Pobierz dozwolone opcje dla produktu
@@ -830,9 +893,9 @@ echo $c['label'] . ' ' . $info;
     <div id="bm-price-preview"
          style="margin:20px 0;padding:10px;background:#f8f8f8;border:1px solid #eee;"
          data-base-price="<?php echo esc_attr( $base_price ); ?>"
-         data-min-area="<?php echo esc_attr( BM_DOOR_MIN_AREA ); ?>"
-         data-max-area="<?php echo esc_attr( BM_DOOR_MAX_AREA ); ?>"
-         data-price-per-over="<?php echo esc_attr( BM_DOOR_PRICE_PER_M2_OVER_MIN ); ?>"
+         data-min-area="<?php echo esc_attr( $min_area ); ?>"
+         data-max-area="<?php echo esc_attr( $max_area ); ?>"
+         data-price-per-over="<?php echo esc_attr( $price_per_m2_over ); ?>"
          data-currency="<?php echo esc_attr( $currency ); ?>">
         <strong>Szacunkowa cena drzwi:</strong>
         <span class="bm-price-value" style="color: #DC9814; font-weight: bold">
@@ -1136,6 +1199,7 @@ function bm_validate_addons( $passed, $product_id, $quantity ) {
 
 add_filter( 'woocommerce_add_cart_item_data', 'bm_add_addons_cart_item_data', 10, 3 );
 function bm_add_addons_cart_item_data( $cart_item_data, $product_id, $variation_id ) {
+$profile_retro_percent = bm_get_door_profile_retro_percent( $product_id );
 $colors = array(
     'ral'    => array( 'label' => 'Kolor z palety RAL',         'price' => 200 ),
     'czarny' => array( 'label' => 'Czarny',                     'price' => 0 ),
@@ -1172,7 +1236,7 @@ $colors = array(
 
     $profiles = array(
         'standard' => array('label'=>'Profil stalowy standard', 'percent'=>0),
-        'retro'    => array('label'=>'Profil stalowy Retro',    'percent'=>BM_DOOR_PROFILE_RETRO_PERCENT),
+        'retro'    => array('label'=>'Profil stalowy Retro',    'percent'=>$profile_retro_percent),
     );
 
     // Wymiary z formularza
@@ -1423,6 +1487,8 @@ function bm_save_addons_to_order( $item, $cart_item_key, $values, $order ) {
 /* ----------------- POWIERZCHNIA Z KOSZYKA / META ----------------- */
 
 function bm_get_door_area_m2_from_cart_item( $cart_item, WC_Product $product ) {
+    $min_area = bm_get_door_min_area( $product->get_id() );
+    $max_area = bm_get_door_max_area( $product->get_id() );
 
     // 1. Preferuj wymiary z koszyka (podane przez usera)
     $height_mm = isset( $cart_item['bm_height_mm'] ) ? (float) $cart_item['bm_height_mm'] : 0;
@@ -1438,15 +1504,15 @@ function bm_get_door_area_m2_from_cart_item( $cart_item, WC_Product $product ) {
 
     // 3. Jeśli nadal brak – przyjmij min. powierzchnię
     if ( $height_mm <= 0 || $width_mm <= 0 ) {
-        return BM_DOOR_MIN_AREA;
+        return $min_area;
     }
 
     $area_m2 = ( $height_mm * $width_mm ) / 1000000; // mm*mm -> m2
 
-    if ( $area_m2 < BM_DOOR_MIN_AREA ) {
-        $area_m2 = BM_DOOR_MIN_AREA;
-    } elseif ( $area_m2 > BM_DOOR_MAX_AREA ) {
-        $area_m2 = BM_DOOR_MAX_AREA;
+    if ( $area_m2 < $min_area ) {
+        $area_m2 = $min_area;
+    } elseif ( $area_m2 > $max_area ) {
+        $area_m2 = $max_area;
     }
 
     return $area_m2;
@@ -1476,10 +1542,12 @@ function bm_add_addons_price( $cart ) {
 
         // 1) Powierzchnia drzwi
         $area_m2 = bm_get_door_area_m2_from_cart_item( $cart_item, $product );
+        $min_area = bm_get_door_min_area( $product->get_id() );
+        $price_per_m2_over = bm_get_door_price_per_m2_over_min( $product->get_id() );
 
         // dopłata za metraż ponad min
-        $extra_area        = max( 0, $area_m2 - BM_DOOR_MIN_AREA );
-        $area_extra_price  = $extra_area * BM_DOOR_PRICE_PER_M2_OVER_MIN;
+        $extra_area        = max( 0, $area_m2 - $min_area );
+        $area_extra_price  = $extra_area * $price_per_m2_over;
 
         // 2) Dopłata za typ szkła (PLN/m2)
         $glass_extra_price = 0;
