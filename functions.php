@@ -328,6 +328,27 @@ function bm_hide_price_when_no_quote( $price_html, $product ) {
     return $price_html;
 }
 
+add_filter( 'woocommerce_variation_price_html', 'bm_hide_variation_price_when_no_quote', 10, 2 );
+function bm_hide_variation_price_when_no_quote( $price_html, $variation ) {
+    if ( is_admin() && ! wp_doing_ajax() ) {
+        return $price_html;
+    }
+
+    if ( ! $variation instanceof WC_Product_Variation ) {
+        return $price_html;
+    }
+
+    if ( ! is_product() ) {
+        return $price_html;
+    }
+
+    if ( bm_product_has_no_quote( $variation->get_parent_id() ) ) {
+        return '';
+    }
+
+    return $price_html;
+}
+
 
 
 /**
@@ -1038,6 +1059,10 @@ function bmGetPanesExtraPrice() {
                 if (preview.dataset.noQuote === '1') {
                     if (priceSpan) {
                         priceSpan.textContent = 'Wycena indywidualna przez pracownika';
+                    }
+                    var wooPriceBdi = document.querySelector('.summary .price .woocommerce-Price-amount bdi');
+                    if (wooPriceBdi) {
+                        wooPriceBdi.textContent = '';
                     }
                     return;
                 }
