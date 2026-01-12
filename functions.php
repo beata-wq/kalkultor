@@ -298,6 +298,36 @@ function bm_get_door_profile_retro_percent( $product_id ) {
     return bm_get_product_setting_float( $product_id, 'bm_door_profile_retro_percent', BM_DOOR_PROFILE_RETRO_PERCENT );
 }
 
+function bm_product_has_no_quote( $product_id ) {
+    if ( ! $product_id ) {
+        return false;
+    }
+
+    $value = get_post_meta( $product_id, 'bez_wyceny', true );
+    return is_string( $value ) && strtolower( trim( $value ) ) === 'tak';
+}
+
+add_filter( 'woocommerce_get_price_html', 'bm_hide_price_when_no_quote', 10, 2 );
+function bm_hide_price_when_no_quote( $price_html, $product ) {
+    if ( is_admin() && ! wp_doing_ajax() ) {
+        return $price_html;
+    }
+
+    if ( ! $product instanceof WC_Product ) {
+        return $price_html;
+    }
+
+    if ( ! is_product() ) {
+        return $price_html;
+    }
+
+    if ( bm_product_has_no_quote( $product->get_id() ) ) {
+        return '';
+    }
+
+    return $price_html;
+}
+
 
 
 /**
@@ -464,6 +494,7 @@ function bm_custom_product_addons() {
     $max_area             = bm_get_door_max_area( $product_id );
     $price_per_m2_over    = bm_get_door_price_per_m2_over_min( $product_id );
     $profile_retro_percent = bm_get_door_profile_retro_percent( $product_id );
+    $no_quote             = bm_product_has_no_quote( $product_id );
 
     // Kategorie, dla których dodatki mają się pokazywać
     $eligible_categories = array( 'drzwi', 'drzwi-przesuwne', 'nieruchome-segmenty' );
@@ -896,10 +927,17 @@ echo $c['label'] . ' ' . $info;
          data-min-area="<?php echo esc_attr( $min_area ); ?>"
          data-max-area="<?php echo esc_attr( $max_area ); ?>"
          data-price-per-over="<?php echo esc_attr( $price_per_m2_over ); ?>"
+         data-no-quote="<?php echo esc_attr( $no_quote ? '1' : '0' ); ?>"
          data-currency="<?php echo esc_attr( $currency ); ?>">
         <strong>Szacunkowa cena drzwi:</strong>
         <span class="bm-price-value" style="color: #DC9814; font-weight: bold">
-           <b><?php echo wc_price( $base_price ); ?></b> 
+           <b>
+            <?php
+            echo $no_quote
+                ? esc_html__( 'Wycena indywidualna przez pracownika', 'nm-framework' )
+                : wc_price( $base_price );
+            ?>
+           </b> 
         </span>
 		<br />Cena ostateczna zostanie podana w podsumowaniu zamówienia przygotowanym przez naszego pracownika.
     </div>
@@ -995,6 +1033,14 @@ function bmGetPanesExtraPrice() {
                 var maxArea       = parseFloat(preview.dataset.maxArea || '2.75');
                 var pricePerOver  = parseFloat(preview.dataset.pricePerOver || '941');
                 var currency      = preview.dataset.currency || 'zł';
+                var priceSpan     = preview.querySelector('.bm-price-value');
+
+                if (preview.dataset.noQuote === '1') {
+                    if (priceSpan) {
+                        priceSpan.textContent = 'Wycena indywidualna przez pracownika';
+                    }
+                    return;
+                }
 
                 var widthInput  = document.getElementById('bm_width_mm');
                 var heightInput = document.getElementById('bm_height_mm');
@@ -1061,7 +1107,6 @@ function bmGetPanesExtraPrice() {
                 // Zaokrąglij do 2 miejsc
                 subtotal = Math.round(subtotal * 100) / 100;
 
-                var priceSpan = preview.querySelector('.bm-price-value');
                 if (priceSpan) {
                     priceSpan.textContent = subtotal.toLocaleString('pl-PL', {
                         minimumFractionDigits: 0,
