@@ -1271,13 +1271,13 @@ function bm_validate_addons( $passed, $product_id, $quantity ) {
 	
 	     
 	
-	        if ( empty( $_POST['bm_side'] ) ) {
+    if ( has_term( $eligible_categories, 'product_cat', $product_id ) ) {
+        $available = get_available_options_for_product( $product_id );
+        $side_required = isset( $available['sides'] ) && ! empty( $available['sides'] );
+        if ( $side_required && empty( $_POST['bm_side'] ) ) {
             wc_add_notice( 'Wybierz stronę otwierania drzwi (lewe/prawe).', 'error' );
             return false;
         }
-
-	
-    if ( has_term( $eligible_categories, 'product_cat', $product_id ) ) {
 
         if ( empty( $_POST['bm_handle_choice'] ) ) {
             wc_add_notice( 'Wybierz styl klamki.', 'error' );
